@@ -1,42 +1,62 @@
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const secret = process.env.WEBHOOK_SECRET;
+  const webhookUrl = "https://gta6-solana-alert-bot.vercel.app/api/webhook";
+
+  if (!token || !secret) {
+    return res.status(500).send("Missing environment variables");
+  }
+
+  if (req.method === "GET" && req.query.setup === "1") {
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/setWebhook`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: webhookUrl,
+          secret_token: secret,
+          allowed_updates: ["message"]
+        })
+      }
+    );
+
+    const result = await response.json();
+    return res.status(response.ok ? 200 : 500).json(result);
+  }
+
+  if (req.method === "GET") {
     return res.status(200).send("Bot is running");
   }
 
-  const secret = process.env.WEBHOOK_SECRET;
-  if (
-    !secret ||
-    req.headers["x-telegram-bot-api-secret-token"] !== secret
-  ) {
+  if (req.method !== "POST") {
+    return res.status(405).send("Method not allowed");
+  }
+
+  if (req.headers["x-telegram-bot-api-secret-token"] !== secret) {
     return res.status(401).send("Unauthorized");
   }
 
-  const update = req.body;
-  const message = update?.message;
+  const message = req.body?.message;
   if (!message?.chat?.id) {
     return res.status(200).send("OK");
   }
 
-  const chatId = message.chat.id;
-  const text = message.text || "";
+  let reply = "Бот работает! Скоро подключим поиск GTA 6 токенов.";
 
-  let reply = "Бот работает! Ожидайте настройки поиска GTA 6 токенов.";
-
-  if (text === "/start") {
-    reply =
-      "Привет! Я GTA 6 Solana Alert Bot. Скоро начну отслеживать новые токены и проверять риски.";
+  if (message.text === "/start") {
+    reply = "Привет! GTA 6 Solana Alert Bot подключён. Скоро начну отслеживать новые токены.";
   }
-
-  const token = process.env.TELEGRAM_BOT_TOKEN;
 
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: chatId,
+      chat_id: message.chat.id,
       text: reply
     })
   });
 
   return res.status(200).send("OK");
 }
+
