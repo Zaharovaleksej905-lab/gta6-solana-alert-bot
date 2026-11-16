@@ -33,6 +33,8 @@ const TERMS = [
 
 const MIN_CAP = 50000;
 const MIN_LIQUIDITY = 10000;
+const MAX_TOP_HOLDER_PCT = 10;
+const MAX_TOP10_HOLDERS_PCT = 35;
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -117,6 +119,7 @@ async function saveSeen(tokens, sha) {
   });
 }
 
+
 async function checkRugCheck(address) {
   const url = `https://api.rugcheck.xyz/v1/tokens/${address}/report`;
 
@@ -131,8 +134,14 @@ async function checkRugCheck(address) {
 
   const report = await response.json();
 
-  if (!report || !report.token || !Array.isArray(report.risks)) {
-    throw new Error("Incomplete RugCheck report");
+  if (
+    !report ||
+    !report.token ||
+    !Array.isArray(report.risks) ||
+    !Array.isArray(report.topHolders) ||
+    report.topHolders.length === 0
+  ) {
+    throw new Error("Incomplete RugCheck holder report");
   }
 
   const mintAuthority = report.token.mintAuthority;
@@ -142,6 +151,59 @@ async function checkRugCheck(address) {
     throw new Error("Authority data unavailable");
   }
 
+  // Exclude known pools, lockers and burn accounts.
+  const excluded = new Set();
+
+  for (const [account, info] of Object.entries(report.knownAccounts || {})) {
+    const type = String(info?.type || "").toUpperCase();
+
+    if (/AMM|POOL|LOCKER|BURN|DEAD|CURVE|INCINERATOR/.test(type)) {
+      excluded.add(account);
+    }
+  }
+
+  for (const market of report.markets || []) {
+    for (const key of ["pubkey", "liquidityAAccount", "liquidityBAccount"]) {
+      const value = market[key];
+
+      if (typeof value === "string") {
+        excluded.add(value);
+      } else if (value && typeof value === "object") {
+        if (value.pubkey) excluded.add(value.pubkey);
+        if (value.owner) excluded.add(value.owner);
+      }
+    }
+  }
+
+  // Aggregate balances by owner wallet.
+  const wallets = new Map();
+
+  for (const holder of report.topHolders) {
+    const owner = holder.owner || holder.address;
+    const pct = Number(holder.pct);
+
+    if (!owner || !Number.isFinite(pct) || pct < 0) {
+      throw new Error("Invalid holder data");
+    }
+
+    if (excluded.has(owner) || excluded.has(holder.address)) {
+      continue;
+    }
+
+    wallets.set(owner, (wallets.get(owner) || 0) + pct);
+  }
+
+  if (wallets.size === 0) {
+    throw new Error("No verifiable holder wallets");
+  }
+
+  const percentages = [...wallets.values()].sort((a, b) => b - a);
+
+  const topHolderPct = percentages[0];
+  const top10Pct = percentages
+    .slice(0, 10)
+    .reduce((sum, pct) => sum + pct, 0);
+
   const activeMint = mintAuthority !== null;
   const activeFreeze = freezeAuthority !== null;
 
@@ -149,6 +211,31 @@ async function checkRugCheck(address) {
     const level = String(risk.level || "").toLowerCase();
     return ["danger", "critical", "high"].includes(level);
   });
+
+  const holderRisk =
+    topHolderPct > MAX_TOP_HOLDER_PCT ||
+    top10Pct > MAX_TOP10_HOLDERS_PCT;
+
+  return {
+    approved:
+      !activeMint &&
+      !activeFreeze &&
+      dangerousRisks.length === 0 &&
+      !holderRisk,
+
+    activeMint,
+    activeFreeze,
+    holderRisk,
+    topHolderPct,
+    top10Pct,
+
+    warnings: report.risks.filter(risk =>
+      ["warn", "warning"].includes(String(risk.level || "").toLowerCase())
+    ),
+
+    score: report.score ?? null
+  };
+}
 
   return {
     approved: !activeMint && !activeFreeze && dangerousRisks.length === 0,
@@ -180,6 +267,8 @@ async function sendTelegram(token) {
 `RugCheck warnings: ${token.rugCheckWarnings}`,
     "⚠️ Manual risk check required. This is not a safety guarantee or investment advice."
   ].join("\n");
+  `Largest holder: ${token.topHolderPct.toFixed(2)}%`,
+`Top 10 holders: ${token.top10Pct.toFixed(2)}%`,
 
   await getJson(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: "POST",
@@ -290,7 +379,8 @@ async function main() {
       token.rugCheck = "PASSED BASIC CHECKS";
       token.rugCheckScore = risk.score;
       token.rugCheckWarnings = risk.warnings.length;
-
+token.topHolderPct = risk.topHolderPct;
+token.top10Pct = risk.top10Pct;
       await sendTelegram(token);
 
       sentAlerts++;
