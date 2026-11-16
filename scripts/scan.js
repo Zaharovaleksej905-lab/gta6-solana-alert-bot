@@ -245,13 +245,16 @@ async function main() {
   const newTokens = [...candidates.values()].filter(
     token => !seen.has(token.address)
   );
-
+let sentAlerts = 0;
+let rejectedTokens = 0;
+let failedChecks = 0;
   
 for (const token of newTokens) {
   try {
     const risk = await checkRugCheck(token.address);
 
     if (!risk.approved) {
+      rejectedTokens++;
       console.log("TOKEN REJECTED:", token.address, {
         activeMint: risk.activeMint,
         activeFreeze: risk.activeFreeze,
@@ -265,11 +268,12 @@ for (const token of newTokens) {
     token.rugCheckWarnings = risk.warnings.length;
 
     await sendTelegram(token);
-
+sentAlerts++;
     console.log("Telegram alert sent:", token.address);
     seen.add(token.address);
 
   } catch (error) {
+    failedChecks++;
     console.error("RUGCHECK FAILED:", token.address, error.message);
   }
 }
@@ -279,11 +283,13 @@ for (const token of newTokens) {
   }
 
   console.log(JSON.stringify({
-    checkedAt: new Date().toISOString(),
-    found: candidates.size,
-    newAlerts: newTokens.length
-  }, null, 2));
-}
+  checkedAt: new Date().toISOString(),
+  found: candidates.size,
+  newCandidates: newTokens.length,
+  newAlerts: sentAlerts,
+  rejected: rejectedTokens,
+  failedChecks
+}, null, 2));
 
 main().catch(error => {
   console.error(error);
