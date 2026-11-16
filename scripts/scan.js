@@ -237,15 +237,6 @@ async function checkRugCheck(address) {
   };
 }
 
-  return {
-    approved: !activeMint && !activeFreeze && dangerousRisks.length === 0,
-    activeMint,
-    activeFreeze,
-    warnings: report.risks.filter(risk =>
-      ["warn", "warning"].includes(String(risk.level || "").toLowerCase())
-    ),
-    score: report.score ?? null
-  };
 
 async function sendTelegram(token) {
   const message = [
@@ -263,12 +254,12 @@ async function sendTelegram(token) {
     "",
     "⚠️ Verification: NOT CONFIRMED",
     `RugCheck: ${token.rugCheck}`,
-`RugCheck score: ${token.rugCheckScore ?? "Unknown"}`,
-`RugCheck warnings: ${token.rugCheckWarnings}`,
+    `RugCheck score: ${token.rugCheckScore ?? "Unknown"}`,
+    `RugCheck warnings: ${token.rugCheckWarnings}`,
+    `Largest holder: ${token.topHolderPct.toFixed(2)}%`,
+    `Top 10 holders: ${token.top10Pct.toFixed(2)}%`,
     "⚠️ Manual risk check required. This is not a safety guarantee or investment advice."
   ].join("\n");
-  `Largest holder: ${token.topHolderPct.toFixed(2)}%`,
-`Top 10 holders: ${token.top10Pct.toFixed(2)}%`,
 
   await getJson(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: "POST",
