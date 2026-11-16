@@ -19,7 +19,7 @@ const TERMS = [
   "doug the frog",
   "dacity coin",
   "audacity",
-  "peekhole"
+  "peekhole",
   "gta6",
   "grand theft auto",
   "rockstar games",
