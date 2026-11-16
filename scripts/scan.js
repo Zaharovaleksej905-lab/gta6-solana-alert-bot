@@ -240,56 +240,64 @@ async function main() {
     }
   }
 
+  
   const state = await loadSeen();
   const seen = new Set(state.tokens);
+
   const newTokens = [...candidates.values()].filter(
     token => !seen.has(token.address)
   );
-let sentAlerts = 0;
-let rejectedTokens = 0;
-let failedChecks = 0;
-  
-for (const token of newTokens) {
-  try {
-    const risk = await checkRugCheck(token.address);
 
-    if (!risk.approved) {
-      rejectedTokens++;
-      console.log("TOKEN REJECTED:", token.address, {
-        activeMint: risk.activeMint,
-        activeFreeze: risk.activeFreeze,
-        score: risk.score
-      });
-      continue;
+  let sentAlerts = 0;
+  let rejectedTokens = 0;
+  let failedChecks = 0;
+
+  for (const token of newTokens) {
+    try {
+      const risk = await checkRugCheck(token.address);
+
+      if (!risk.approved) {
+        rejectedTokens++;
+
+        console.log("TOKEN REJECTED:", token.address, {
+          activeMint: risk.activeMint,
+          activeFreeze: risk.activeFreeze,
+          score: risk.score
+        });
+
+        continue;
+      }
+
+      token.rugCheck = "PASSED BASIC CHECKS";
+      token.rugCheckScore = risk.score;
+      token.rugCheckWarnings = risk.warnings.length;
+
+      await sendTelegram(token);
+
+      sentAlerts++;
+      seen.add(token.address);
+
+      console.log("Telegram alert sent:", token.address);
+
+    } catch (error) {
+      failedChecks++;
+      console.error("RUGCHECK FAILED:", token.address, error.message);
     }
-
-    token.rugCheck = "PASSED BASIC CHECKS";
-    token.rugCheckScore = risk.score;
-    token.rugCheckWarnings = risk.warnings.length;
-
-    await sendTelegram(token);
-sentAlerts++;
-    console.log("Telegram alert sent:", token.address);
-    seen.add(token.address);
-
-  } catch (error) {
-    failedChecks++;
-    console.error("RUGCHECK FAILED:", token.address, error.message);
   }
-}
 
-  if (newTokens.length > 0) {
+  if (sentAlerts > 0) {
     await saveSeen([...seen].slice(-5000), state.sha);
   }
 
   console.log(JSON.stringify({
-  checkedAt: new Date().toISOString(),
-  found: candidates.size,
-  newCandidates: newTokens.length,
-  newAlerts: sentAlerts,
-  rejected: rejectedTokens,
-  failedChecks
-}, null, 2));
+    checkedAt: new Date().toISOString(),
+    found: candidates.size,
+    newCandidates: newTokens.length,
+    newAlerts: sentAlerts,
+    rejected: rejectedTokens,
+    failedChecks: failedChecks
+  }, null, 2));
+}
 
 main().catch(error => {
   console.error(error);
