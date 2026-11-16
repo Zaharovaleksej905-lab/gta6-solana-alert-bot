@@ -1,5 +1,6 @@
 const API = "https://api.dexscreener.com";
 
+
 const TERMS = [
   "gta 6",
   "gta vi",
@@ -7,11 +8,30 @@ const TERMS = [
   "lucia",
   "jason",
   "vice city",
-  "leonida"
+  "leonida",
+
+  "gta6",
+  "grand theft auto",
+  "rockstar games",
+  "rockstar",
+  "vice",
+  "vice city beach",
+  "leonida state",
+  "port gellhorn",
+  "ambrosia",
+  "mount kalaga",
+  "grassrivers",
+  "w vice",
+  "jason duval",
+  "lucia caminos",
+  "project americas",
+  "blaine county",
+  "whetstone",
+  "gator keys",
+  "gta6 token"
 ];
 
 const MIN_CAP = 50000;
-const MAX_CAP = 100000;
 const MIN_LIQUIDITY = 10000;
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -212,10 +232,9 @@ async function main() {
         const liquidity = Number(pair.liquidity?.usd ?? 0);
 
         if (
-          cap < MIN_CAP ||
-          cap > MAX_CAP ||
-          liquidity < MIN_LIQUIDITY
-        ) continue;
+  cap < MIN_CAP ||
+  liquidity < MIN_LIQUIDITY
+) continue;
 
         const candidate = {
           name: pair.baseToken?.name || "Unknown",
