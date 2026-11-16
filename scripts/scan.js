@@ -9,7 +9,17 @@ const TERMS = [
   "jason",
   "vice city",
   "leonida",
-
+  "gta vi dog",
+  "gta memes",
+  "gta6cat",
+  "vice cat",
+  "vicecat",
+  "state of leonida",
+  "macca the gator",
+  "doug the frog",
+  "dacity coin",
+  "audacity",
+  "peekhole"
   "gta6",
   "grand theft auto",
   "rockstar games",
