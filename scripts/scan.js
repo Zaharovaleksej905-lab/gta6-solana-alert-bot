@@ -155,6 +155,9 @@ async function sendTelegram(token) {
     `DexScreener: ${token.url || "Link unavailable"}`,
     "",
     "⚠️ Verification: NOT CONFIRMED",
+    `RugCheck: ${token.rugCheck}`,
+`RugCheck score: ${token.rugCheckScore ?? "Unknown"}`,
+`RugCheck warnings: ${token.rugCheckWarnings}`,
     "⚠️ Manual risk check required. This is not a safety guarantee or investment advice."
   ].join("\n");
 
@@ -243,11 +246,33 @@ async function main() {
     token => !seen.has(token.address)
   );
 
-  for (const token of newTokens) {
+  
+for (const token of newTokens) {
+  try {
+    const risk = await checkRugCheck(token.address);
+
+    if (!risk.approved) {
+      console.log("TOKEN REJECTED:", token.address, {
+        activeMint: risk.activeMint,
+        activeFreeze: risk.activeFreeze,
+        score: risk.score
+      });
+      continue;
+    }
+
+    token.rugCheck = "PASSED BASIC CHECKS";
+    token.rugCheckScore = risk.score;
+    token.rugCheckWarnings = risk.warnings.length;
+
     await sendTelegram(token);
+
     console.log("Telegram alert sent:", token.address);
     seen.add(token.address);
+
+  } catch (error) {
+    console.error("RUGCHECK FAILED:", token.address, error.message);
   }
+}
 
   if (newTokens.length > 0) {
     await saveSeen([...seen].slice(-5000), state.sha);
