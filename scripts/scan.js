@@ -246,7 +246,7 @@ async function checkRugCheck(address) {
     ),
     score: report.score ?? null
   };
-}
+
 async function sendTelegram(token) {
   const message = [
     "🎮 GTA 6 SOLANA ALERT",
