@@ -238,27 +238,29 @@ async function checkRugCheck(address) {
 }
 
 
+
 async function sendTelegram(token) {
   const message = [
-    "🎮 GTA 6 SOLANA ALERT",
+    "🎮 ОБНАРУЖЕН ТОКЕН GTA 6",
     "",
-    `Name: ${token.name}`,
-    `Symbol: ${token.symbol}`,
-    `Market cap: $${Math.round(token.marketCap).toLocaleString("en-US")}`,
-    `Liquidity: $${Math.round(token.liquidity).toLocaleString("en-US")}`,
-    `24h volume: $${Math.round(token.volume24h).toLocaleString("en-US")}`,
+    `Название: ${token.name}`,
+    `Тикер: ${token.symbol}`,
+    `Рыночная капитализация: $${Math.round(token.marketCap).toLocaleString("en-US")}`,
+    `Ликвидность: $${Math.round(token.liquidity).toLocaleString("en-US")}`,
+    `Объём торгов за 24 часа: $${Math.round(token.volume24h).toLocaleString("en-US")}`,
     "",
-    `Contract: ${token.address}`,
+    `Адрес контракта: ${token.address}`,
     "",
-    `DexScreener: ${token.url || "Link unavailable"}`,
+    `DexScreener: ${token.url || "Ссылка недоступна"}`,
     "",
-    "⚠️ Verification: NOT CONFIRMED",
+    "🔎 ПРОВЕРКА БЕЗОПАСНОСТИ",
     `RugCheck: ${token.rugCheck}`,
-    `RugCheck score: ${token.rugCheckScore ?? "Unknown"}`,
-    `RugCheck warnings: ${token.rugCheckWarnings}`,
-    `Largest holder: ${token.topHolderPct.toFixed(2)}%`,
-    `Top 10 holders: ${token.top10Pct.toFixed(2)}%`,
-    "⚠️ Manual risk check required. This is not a safety guarantee or investment advice."
+    `Оценка RugCheck: ${token.rugCheckScore ?? "Нет данных"}`,
+    `Предупреждения: ${token.rugCheckWarnings}`,
+    `Крупнейший держатель: ${token.topHolderPct.toFixed(2)}%`,
+    `Топ-10 держателей: ${token.top10Pct.toFixed(2)}%`,
+    "",
+    "⚠️ Базовые проверки пройдены, но это не гарантия безопасности. Перед покупкой необходим самостоятельный анализ."
   ].join("\n");
 
   await getJson(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
@@ -271,6 +273,7 @@ async function sendTelegram(token) {
     })
   });
 }
+
 
 async function main() {
   if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID || !GITHUB_TOKEN || !GITHUB_REPOSITORY) {
