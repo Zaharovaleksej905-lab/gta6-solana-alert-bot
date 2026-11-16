@@ -97,6 +97,49 @@ async function saveSeen(tokens, sha) {
   });
 }
 
+async function checkRugCheck(address) {
+  const url = `https://api.rugcheck.xyz/v1/tokens/${address}/report`;
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(20000)
+  });
+
+  if (!response.ok) {
+    throw new Error(`RugCheck error: ${response.status}`);
+  }
+
+  const report = await response.json();
+
+  if (!report || !report.token || !Array.isArray(report.risks)) {
+    throw new Error("Incomplete RugCheck report");
+  }
+
+  const mintAuthority = report.token.mintAuthority;
+  const freezeAuthority = report.token.freezeAuthority;
+
+  if (mintAuthority === undefined || freezeAuthority === undefined) {
+    throw new Error("Authority data unavailable");
+  }
+
+  const activeMint = mintAuthority !== null;
+  const activeFreeze = freezeAuthority !== null;
+
+  const dangerousRisks = report.risks.filter(risk => {
+    const level = String(risk.level || "").toLowerCase();
+    return ["danger", "critical", "high"].includes(level);
+  });
+
+  return {
+    approved: !activeMint && !activeFreeze && dangerousRisks.length === 0,
+    activeMint,
+    activeFreeze,
+    warnings: report.risks.filter(risk =>
+      ["warn", "warning"].includes(String(risk.level || "").toLowerCase())
+    ),
+    score: report.score ?? null
+  };
+}
 async function sendTelegram(token) {
   const message = [
     "🎮 GTA 6 SOLANA ALERT",
